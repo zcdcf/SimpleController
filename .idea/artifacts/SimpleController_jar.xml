@@ -1,0 +1,10 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="SimpleController:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/SimpleController_jar</output-path>
+    <root id="archive" name="SimpleController.jar">
+      <element id="module-output" name="SimpleController" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/web/WEB-INF/lib/dom4j-2.1.1.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/web/WEB-INF/lib/jaxen-1.1.6.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>

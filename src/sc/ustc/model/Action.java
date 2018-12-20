@@ -15,7 +15,7 @@ public class Action {
     private String actionName;
     private String className;
     private String methodName;
-    private List<String> interceptorRedList = new ArrayList<>();
+    private List<String> interceptorRefList = new ArrayList<>();
     private Map<String, Map<String, String>> results = new HashMap<>();
 
     public Action(String name) {
@@ -53,11 +53,11 @@ public class Action {
         this.results.put(resultValue, resultsContent);
     }
 
-    public List<String> getInterceptorRedList() {
-        return interceptorRedList;
+    public List<String> getInterceptorRefList() {
+        return interceptorRefList;
     }
 
-    public void addtInterceptorRedList(String refName) {
-        this.interceptorRedList.add(refName);
+    public void addtInterceptorRefList(String refName) {
+        this.interceptorRefList.add(refName);
     }
 }

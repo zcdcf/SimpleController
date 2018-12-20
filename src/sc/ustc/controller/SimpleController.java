@@ -1,11 +1,12 @@
 package sc.ustc.controller;
 
-import org.dom4j.Document;
-import org.dom4j.DocumentException;
-import org.dom4j.Element;
-import org.dom4j.Node;
-import org.dom4j.io.SAXReader;
+import sc.ustc.factory.ExecutorProxyFactory;
+import sc.ustc.model.Action;
 import sc.ustc.model.ConstRepo;
+import sc.ustc.model.Interceptor;
+import sc.ustc.model.RunTimeVar;
+import sc.ustc.util.ConfigFileResolver;
+import sc.ustc.util.Executor;
 import sc.ustc.util.ProduceTimeFormatted;
 
 import javax.servlet.ServletException;
@@ -16,9 +17,6 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.*;
 
 /**
@@ -29,10 +27,10 @@ import java.util.*;
 
 @WebServlet("/SimpleController")
 public class SimpleController extends HttpServlet {
-    private static final String TAG = "sc.ustc.controller.SimpleController:";
+    private static final String TAG = ProduceTimeFormatted.getCurrentTime()+"sc.ustc.controller.SimpleController:";
 
     @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException{
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         // test current path
         System.out.println(System.getProperty("user.dir"));
 
@@ -44,6 +42,7 @@ public class SimpleController extends HttpServlet {
         System.out.println(filePath);
         //
         String projectOutputPath = this.getServletContext().getRealPath("/");
+        RunTimeVar.projectRootPath = projectOutputPath;
         System.out.println(projectOutputPath);
         // set response head content
         response.setContentType("text/html;charset=utf-8");
@@ -51,139 +50,76 @@ public class SimpleController extends HttpServlet {
         PrintWriter writer = response.getWriter();
 
         File directory = new File("");// 参数为空
-        String proRootPath = directory.getCanonicalPath();
+        String proRootPath = directory.getPath();
         System.out.println(proRootPath);
 
-        // print default response content
-        writer.println("<html>");
-        writer.println("<head><title>SimpleController</title></head>");
-        writer.println("<body>欢迎使用SimpleController</body>");
-        writer.println("</html>");
 
-        String requestActionName = request.getParameter(ConstRepo.PAR_NAME);
+        Map<String, String[]> parameterMap = request.getParameterMap();
 
-        Document configFile = null;
-        try {
-            configFile = getXMLDoc(projectOutputPath+ ConstRepo.configFilePath);
-            System.out.println(ProduceTimeFormatted.getCurrentTime()+TAG+" Successfully read the file");
-        } catch (DocumentException e) {
-            e.printStackTrace();
-        }
-        Element root = configFile.getRootElement();
-        System.out.println(ProduceTimeFormatted.getCurrentTime()+TAG+"Root Element is "+root.getName());
-        boolean findAction = false;
-        boolean findResult = false;
+        if (parameterMap.isEmpty()) {
+            // print default response content
+            writer.println("<html>");
+            writer.println("<head><title>SimpleController</title></head>");
+            writer.println("<body>欢迎使用SimpleController</body>");
+            writer.println("</html>");
+        } else {
+            String requestActionName = request.getParameter(ConstRepo.PAR_NAME);
 
-        List<Node> list = configFile.selectNodes("//sc-configuration/controller/action");
-        for (Iterator<Node> it = list.iterator(); it.hasNext();) {
-            Element node = (Element) it.next();
-            String nodeName = node.attributeValue(ConstRepo.ATTR_NAME);
-            System.out.println(ProduceTimeFormatted.getCurrentTime()+TAG+"tag:action "+"attribute name is "+nodeName);
-
-            if(nodeName.equals(requestActionName)) {
-                findAction = true;
-            } else {
-                continue;
+            ConfigFileResolver configFileResolver = new ConfigFileResolver(projectOutputPath+ConstRepo.configFilePath);
+            configFileResolver.resolveConfigFile();
+            Map<String, Action> actionMap = configFileResolver.getActionMap();
+            for(String key: actionMap.keySet()) {
+                System.out.println(TAG+" action "+key+" int map");
             }
+            Map<String, Interceptor> interceptorMap = configFileResolver.getInterceptorMap();
 
-            List<Node> interceptorRefNodes = node.selectNodes("//interceptor-ref");
-            List<Node> interceptorList = new ArrayList<>();
-            boolean hasInterceptor = false;
-            Map<String, Map<String, String>> interceptorInfoMap = new HashMap<>();
-            if(interceptorRefNodes.size()!=0) {
-                interceptorList = configFile.selectNodes("//sc-configuration/interceptor");
+            boolean findAction = false;
+            boolean findResult = false;
 
-                if(interceptorList.size()==0) {
-                    writer.println(ConstRepo.INTERCEPTOR_NOT_FOUND_INFO);
-                } else {
-                    for(Iterator<Node> iterator = interceptorList.iterator(); iterator.hasNext(); ) {
-                        Element interceptorNode = (Element) iterator.next();
-                        String interceptorName = interceptorNode.attributeValue(ConstRepo.ATTR_NAME);
-                        for(Iterator<Node> it = interceptorRefNodes.iterator(); it.hasNext(); ) {
-                            Element refEle = (Element) it.next();
-                            if(refEle.attributeValue(ConstRepo.ATTR_NAME).equals(interceptorName)) {
-                                Map<String, String> info = new HashMap<>();
-                                info.put("interceptorClass", interceptorNode.attributeValue(ConstRepo.ATTR_CLASS));
-                                info.put("predoMethod", interceptorNode.attributeValue("predo"));
-                                info.put("afterdoMethdo", interceptorNode.attributeValue("afterdo"));
-                                interceptorInfoMap.put(interceptorNode.attributeValue(ConstRepo.ATTR_NAME),info);
-                                it.remove();
-                                iterator.remove();
-                                hasInterceptor = true;
-                                break;
-                            }
+            Action objectAction = actionMap.get(requestActionName);
+            if (objectAction == null) {
+                System.out.println(TAG+"action not found");
+                findAction = false;
+            } else {
+                findAction = true;
+
+                Executor executorProxy = (Executor) ExecutorProxyFactory.getExecutorProxy(new Executor(objectAction, interceptorMap));
+                executorProxy.setAction(objectAction);
+                executorProxy.setInterceptorMap(interceptorMap);
+                String result = executorProxy.execute();
+
+                Map<String, Map<String, String>> results = objectAction.getResults();
+                if (results.containsKey(result)) {
+                    Map<String, String> resultInfo = results.get(result);
+                    String jumpType = resultInfo.get(ConstRepo.ATTR_JUMP_TYPE);
+                    String jumpValue = resultInfo.get(ConstRepo.ATTR_VALUE);
+                    findResult = true;
+
+                    switch (jumpType) {
+                        case "forward": {
+                            request.getRequestDispatcher(jumpValue).forward(request, response);
+                            break;
+                        }
+                        case "redirect": {
+                            response.sendRedirect(jumpValue);
+                            break;
                         }
                     }
+                } else {
+                    findResult = false;
                 }
             }
-            // use reflection to find class to handle action
-            String className = node.attributeValue(ConstRepo.ATTR_CLASS);
-            String methodName = node.attributeValue(ConstRepo.ATTR_METHOD);
-            System.out.println(ProduceTimeFormatted.getCurrentTime()+TAG+"handle class name is "+className+" handle method is "+methodName);
-            Method m = null;
-            Object loginActionClass = null;
-            Class handleClass = null;
-            String result = null;
-            try {
-                handleClass = Class.forName(className);
-                Constructor constructor = handleClass.getConstructor();
-                loginActionClass = constructor.newInstance();
-                m = handleClass.getMethod(methodName);
-                result = (String) m.invoke(loginActionClass);
-            } catch (NoSuchMethodException e) {
-                e.printStackTrace();
-            } catch (IllegalAccessException e) {
-                e.printStackTrace();
-            } catch (InstantiationException e) {
-                e.printStackTrace();
-            } catch (InvocationTargetException e) {
-                e.printStackTrace();
-            } catch (ClassNotFoundException e) {
-                e.printStackTrace();
+
+            if (!findAction) {
+                writer.println(ConstRepo.ACTION_NOT_MATCH_INFO);
+            } else if (!findResult) {
+                writer.println(ConstRepo.RESULT_NOT_FOUND_INFO);
             }
-
-
-            for(Iterator<Element> subIt = node.elementIterator(); subIt.hasNext();) {
-               Element subEle = subIt.next();
-               if (subEle.getName().equals("result") && result.equals(subEle.attributeValue(ConstRepo.ATTR_NAME))) {
-                   String jumpType = subEle.attributeValue(ConstRepo.ATTR_JUMP_TYPE);
-                   switch (jumpType) {
-                       case "forward":{
-                           request.getRequestDispatcher(subEle.attributeValue(ConstRepo.ATTR_VALUE)).forward(request,response);
-                           break;
-                       }
-                       case "redirect":{
-                           response.sendRedirect(subEle.attributeValue(ConstRepo.ATTR_VALUE));
-                           break;
-                       }
-                   }
-                   findResult = true;
-                   break;
-               }
-            }
-
-            if(findAction) {
-                break;
-            }
-
-        }
-
-        if(!findAction) {
-            writer.println(ConstRepo.ACTION_NOT_MATCH_INFO);
-        } else if(!findResult) {
-            writer.println(ConstRepo.RESULT_NOT_FOUND_INFO);
         }
 
     }
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         doPost(request, response);
-    }
-
-    public Document getXMLDoc(String filePath) throws DocumentException {
-        File file = new File(filePath);
-        SAXReader reader = new SAXReader();
-        Document document = reader.read(file);
-        return document;
     }
 }

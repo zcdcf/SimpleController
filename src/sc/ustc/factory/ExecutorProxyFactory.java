@@ -1,7 +1,7 @@
 package sc.ustc.factory;
 
 import net.sf.cglib.proxy.Enhancer;
-import sc.ustc.proxy.ActionProxy;
+import sc.ustc.proxy.ExecutorProxy;
 
 /**
  * Creator: hfang
@@ -9,11 +9,11 @@ import sc.ustc.proxy.ActionProxy;
  * Description:
  **/
 
-public class ActionProxyFactory {
-    public static Object getGcLibDynProxy(Object target){
+public class ExecutorProxyFactory {
+    public static Object getExecutorProxy(Object target){
         Enhancer enhancer=new Enhancer();
         enhancer.setSuperclass(target.getClass());
-        enhancer.setCallback(new ActionProxy());
+        enhancer.setCallback(new ExecutorProxy());
         return enhancer.create();
     }
 }

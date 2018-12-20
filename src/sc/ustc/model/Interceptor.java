@@ -12,6 +12,9 @@ public class Interceptor {
     private String predoMethodName;
     private String afterdoMethodName;
 
+    public Interceptor(String name) {
+        this.interceptorName = name;
+    }
 
     public String getInterceptorName() {
         return interceptorName;
@@ -43,5 +46,10 @@ public class Interceptor {
 
     public void setAfterdoMethodName(String afterdoMethodName) {
         this.afterdoMethodName = afterdoMethodName;
+    }
+
+    @Override
+    public String toString() {
+        return "name:"+interceptorName+" class name:"+className+" predo method name:"+predoMethodName+" afterdo method name:"+afterdoMethodName;
     }
 }

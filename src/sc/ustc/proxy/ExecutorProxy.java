@@ -3,6 +3,7 @@ package sc.ustc.proxy;
 import net.sf.cglib.proxy.Enhancer;
 import net.sf.cglib.proxy.MethodInterceptor;
 import net.sf.cglib.proxy.MethodProxy;
+import sc.ustc.util.ProduceTimeFormatted;
 
 import java.lang.reflect.Method;
 
@@ -12,16 +13,14 @@ import java.lang.reflect.Method;
  * Description:
  **/
 
-public class ActionProxy implements MethodInterceptor {
-
-    Object actionInterceptor;
+public class ExecutorProxy implements MethodInterceptor {
+    private static final String TAG = ProduceTimeFormatted.getCurrentTime()+"sc.ustc.proxy.ExecutorProxy:";
 
     @Override
     public Object intercept(Object o, Method method, Object[] objects, MethodProxy methodProxy) throws Throwable {
-        return null;
+        System.out.println(TAG+"ExecutorProxy get the request");
+        Object result = methodProxy.invokeSuper(o, objects);
+        return result;
     }
 
-    public void setActionInterceptor(Object interceptor) {
-        this.actionInterceptor = interceptor;
-    }
 }

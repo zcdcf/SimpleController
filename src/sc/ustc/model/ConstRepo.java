@@ -22,4 +22,6 @@ public class ConstRepo {
     public static final String ATTR_METHOD = "method";
     public static final String ATTR_VALUE = "value";
     public static final String ATTR_JUMP_TYPE = "type";
+    public static final String XML_VIEW_PATH = "pages/success_view.xml";
+    public static final String XSL_PATH = "pages/view.xsl";
 }

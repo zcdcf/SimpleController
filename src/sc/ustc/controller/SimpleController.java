@@ -8,6 +8,7 @@ import sc.ustc.model.RunTimeVar;
 import sc.ustc.util.ConfigFileResolver;
 import sc.ustc.util.Executor;
 import sc.ustc.util.ProduceTimeFormatted;
+import sc.ustc.util.XMLConverter;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -95,14 +96,20 @@ public class SimpleController extends HttpServlet {
                     String jumpValue = resultInfo.get(ConstRepo.ATTR_VALUE);
                     findResult = true;
 
-                    switch (jumpType) {
-                        case "forward": {
-                            request.getRequestDispatcher(jumpValue).forward(request, response);
-                            break;
-                        }
-                        case "redirect": {
-                            response.sendRedirect(jumpValue);
-                            break;
+                    if(jumpValue.endsWith("_view.xml")) {
+                        String XMLPath = RunTimeVar.projectRootPath+ConstRepo.XML_VIEW_PATH;
+                        String XSLPath = RunTimeVar.projectRootPath+ConstRepo.XSL_PATH;
+                        response.getWriter().write(Objects.requireNonNull(XMLConverter.ConvertXmlToHtml(XSLPath, XMLPath)).toString());
+                    } else {
+                        switch (jumpType) {
+                            case "forward": {
+                                request.getRequestDispatcher(jumpValue).forward(request, response);
+                                break;
+                            }
+                            case "redirect": {
+                                response.sendRedirect(jumpValue);
+                                break;
+                            }
                         }
                     }
                 } else {

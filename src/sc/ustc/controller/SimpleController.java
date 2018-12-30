@@ -84,9 +84,13 @@ public class SimpleController extends HttpServlet {
             } else {
                 findAction = true;
 
-                Executor executorProxy = (Executor) ExecutorProxyFactory.getExecutorProxy(new Executor(objectAction, interceptorMap));
+                for(String key: parameterMap.keySet()) {
+                    System.out.println(TAG + "has parameter " + key + " value=" + parameterMap.get(key)[0]);
+                }
+                Executor executorProxy = (Executor) ExecutorProxyFactory.getExecutorProxy(new Executor(objectAction, interceptorMap, parameterMap));
                 executorProxy.setAction(objectAction);
                 executorProxy.setInterceptorMap(interceptorMap);
+                executorProxy.setParameterMap(parameterMap);
                 String result = executorProxy.execute();
 
                 Map<String, Map<String, String>> results = objectAction.getResults();

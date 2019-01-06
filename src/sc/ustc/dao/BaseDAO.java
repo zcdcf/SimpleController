@@ -17,6 +17,10 @@ abstract public class BaseDAO {
     protected String driver;
     private static final String TAG = ProduceTimeFormatted.getCurrentTime()+"sc.ustc.dao:";
 
+    public BaseDAO() {
+
+    }
+
     public BaseDAO(String url, String userName, String userPassword, String driver) {
         this.url = url;
         this.userName = userName;
@@ -51,7 +55,7 @@ abstract public class BaseDAO {
         }
     }
 
-    abstract public Object query(String sql);
+    abstract public Object query(Object queryObj, String field);
     abstract public boolean insert(String sql);
     abstract public boolean update(String sql);
     abstract public boolean delete(String sql);

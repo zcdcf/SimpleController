@@ -24,4 +24,5 @@ public class ConstRepo {
     public static final String ATTR_JUMP_TYPE = "type";
     public static final String XML_VIEW_PATH = "pages/success_view.xml";
     public static final String XSL_PATH = "pages/view.xsl";
+    public static final String OR_MAPPING_PATH = "WEB-INF/or_mapping.xml";
 }

@@ -25,4 +25,5 @@ public class ConstRepo {
     public static final String XML_VIEW_PATH = "pages/success_view.xml";
     public static final String XSL_PATH = "pages/view.xsl";
     public static final String OR_MAPPING_PATH = "WEB-INF/or_mapping.xml";
+    public static final String DEPENDENCY_FILE_PATH = "WEB-INF/di.xml";
 }

@@ -4,14 +4,14 @@ import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
 import org.dom4j.Node;
-import org.dom4j.io.SAXReader;
 import sc.ustc.model.ClassBean;
 import sc.ustc.model.ConstRepo;
 import sc.ustc.model.PropertyBean;
 import sc.ustc.model.RunTimeVar;
 
-import java.io.File;
 import java.util.*;
+
+import static sc.ustc.util.CommonUtil.getXMLDoc;
 
 /**
  * Creator: hfang
@@ -32,13 +32,6 @@ public class Configuration {
         } catch (DocumentException e) {
             e.printStackTrace();
         }
-    }
-
-    private Document getXMLDoc(String filePath) throws DocumentException {
-        File file = new File(filePath);
-        SAXReader reader = new SAXReader();
-        Document document = reader.read(file);
-        return document;
     }
 
     private Map<String, String> resolveJDBConfigMap(Document mappingDoc) {

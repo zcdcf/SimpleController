@@ -4,13 +4,13 @@ import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
 import org.dom4j.Node;
-import org.dom4j.io.SAXReader;
 import sc.ustc.model.Action;
 import sc.ustc.model.ConstRepo;
 import sc.ustc.model.Interceptor;
 
-import java.io.File;
 import java.util.*;
+
+import static sc.ustc.util.CommonUtil.getXMLDoc;
 
 
 /**
@@ -104,10 +104,4 @@ public class ConfigFileResolver {
         return interceptorMap;
     }
 
-    private Document getXMLDoc(String filePath) throws DocumentException {
-        File file = new File(filePath);
-        SAXReader reader = new SAXReader();
-        Document document = reader.read(file);
-        return document;
-    }
 }

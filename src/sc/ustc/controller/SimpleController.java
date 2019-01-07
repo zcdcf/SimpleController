@@ -1,14 +1,8 @@
 package sc.ustc.controller;
 
 import sc.ustc.factory.ExecutorProxyFactory;
-import sc.ustc.model.Action;
-import sc.ustc.model.ConstRepo;
-import sc.ustc.model.Interceptor;
-import sc.ustc.model.RunTimeVar;
-import sc.ustc.util.ConfigFileResolver;
-import sc.ustc.util.Executor;
-import sc.ustc.util.ProduceTimeFormatted;
-import sc.ustc.util.XMLConverter;
+import sc.ustc.model.*;
+import sc.ustc.util.*;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -29,6 +23,30 @@ import java.util.*;
 @WebServlet("/SimpleController")
 public class SimpleController extends HttpServlet {
     private static final String TAG = ProduceTimeFormatted.getCurrentTime()+"sc.ustc.controller.SimpleController:";
+    private Map<String, Action> actionMap;
+    private Map<String, Interceptor> interceptorMap;
+    private Map<String, DepedencyBean> dependencyBeanMap;
+
+    public void init() {
+        String projectOutputPath = this.getServletContext().getRealPath("/");
+        RunTimeVar.projectRootPath = projectOutputPath;
+        System.out.println(projectOutputPath);
+
+        ConfigFileResolver configFileResolver = new ConfigFileResolver(projectOutputPath+ConstRepo.configFilePath);
+        configFileResolver.resolveConfigFile();
+        actionMap = configFileResolver.getActionMap();
+        for(String key: actionMap.keySet()) {
+            System.out.println(TAG+" action "+key+" in the map");
+        }
+        interceptorMap = configFileResolver.getInterceptorMap();
+
+        DependencyResolver dependencyResolver = new DependencyResolver(projectOutputPath+ConstRepo.DEPENDENCY_FILE_PATH);
+        dependencyResolver.resolveXML();
+        dependencyBeanMap = dependencyResolver.getBeanMap();
+        for(String key: dependencyBeanMap.keySet()) {
+            System.out.println(TAG+" dependencyBean "+key+" in the map");
+        }
+    }
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -42,9 +60,6 @@ public class SimpleController extends HttpServlet {
         String filePath = nodePath.substring(1, nodePath.length() - 16);
         System.out.println(filePath);
         //
-        String projectOutputPath = this.getServletContext().getRealPath("/");
-        RunTimeVar.projectRootPath = projectOutputPath;
-        System.out.println(projectOutputPath);
         // set response head content
         response.setContentType("text/html;charset=utf-8");
         response.setCharacterEncoding("utf-8");
@@ -66,14 +81,6 @@ public class SimpleController extends HttpServlet {
         } else {
             String requestActionName = request.getParameter(ConstRepo.PAR_NAME);
 
-            ConfigFileResolver configFileResolver = new ConfigFileResolver(projectOutputPath+ConstRepo.configFilePath);
-            configFileResolver.resolveConfigFile();
-            Map<String, Action> actionMap = configFileResolver.getActionMap();
-            for(String key: actionMap.keySet()) {
-                System.out.println(TAG+" action "+key+" int map");
-            }
-            Map<String, Interceptor> interceptorMap = configFileResolver.getInterceptorMap();
-
             boolean findAction = false;
             boolean findResult = false;
 
@@ -87,10 +94,12 @@ public class SimpleController extends HttpServlet {
                 for(String key: parameterMap.keySet()) {
                     System.out.println(TAG + "has parameter " + key + " value=" + parameterMap.get(key)[0]);
                 }
-                Executor executorProxy = (Executor) ExecutorProxyFactory.getExecutorProxy(new Executor(objectAction, interceptorMap, parameterMap));
+
+                Executor executorProxy = (Executor) ExecutorProxyFactory.getExecutorProxy(new Executor(objectAction, interceptorMap, parameterMap, dependencyBeanMap));
                 executorProxy.setAction(objectAction);
                 executorProxy.setInterceptorMap(interceptorMap);
                 executorProxy.setParameterMap(parameterMap);
+                executorProxy.setDepedencyBeanMap(dependencyBeanMap);
                 String result = executorProxy.execute();
 
                 Map<String, Map<String, String>> results = objectAction.getResults();

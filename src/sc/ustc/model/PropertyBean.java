@@ -10,7 +10,7 @@ public class PropertyBean {
     private String filedName;
     private String columnName;
     private String type;
-    private String lazy;
+    private Boolean lazy;
 
     public String getFiledName() {
         return filedName;
@@ -30,10 +30,10 @@ public class PropertyBean {
     public void setType(String type) {
         this.type = type;
     }
-    public String getLazy() {
+    public Boolean getLazy() {
         return lazy;
     }
-    public void setLazy(String lazy) {
+    public void setLazy(Boolean lazy) {
         this.lazy = lazy;
     }
 

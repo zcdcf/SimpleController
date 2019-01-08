@@ -2,16 +2,21 @@ package sc.ustc.dao;
 
 import sc.ustc.model.ClassBean;
 import sc.ustc.model.PropertyBean;
+import sc.ustc.proxy.BeanProxy;
+import sc.ustc.util.CommonUtil;
 import sc.ustc.util.ProduceTimeFormatted;
 
+import javax.sql.PooledConnection;
 import javax.sql.rowset.CachedRowSet;
 import javax.sql.rowset.RowSetFactory;
 import javax.sql.rowset.RowSetProvider;
+import java.beans.IntrospectionException;
+import java.beans.Introspector;
+import java.beans.PropertyDescriptor;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.*;
-import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
+import java.util.*;
 
 /**
  * Creator: hfang
@@ -21,29 +26,67 @@ import java.util.HashMap;
 
 public class Conversation {
     private static final String TAG = ProduceTimeFormatted.getCurrentTime()+"sc.ustc.dao.Conversation:";
-    private Map<String,String> JDBCConfig;
-    private List<ClassBean> classBeanList;
+    private static Map<String,String> JDBCConfig;
+    private static List<ClassBean> classBeanList;
+    private static List<PropertyBean> propertyBeanList;
+    private static String key;
 
     public Conversation() {
-        Configuration configuration = new Configuration();
-        configuration.resolveORMapping();
-        System.out.println(TAG+"resolved ");
-        JDBCConfig = configuration.getJDBCConfig();
-        System.out.println(TAG+"get JDBCConfig");
-        classBeanList = configuration.getClassBeanList();
-        System.out.println(TAG+"get classBeanList");
     }
 
-    public Object query(Object obj, String field) {
-        CachedRowSet rowSet = getObject(obj, field);
+    public static CachedRowSet query(Object obj, String table, String field) throws SQLException, ClassNotFoundException {
+        PropertyDescriptor pds[];
+        String ID = null;
+        try {
+            pds = Introspector.getBeanInfo(obj.getClass()).getPropertyDescriptors();
+            for (PropertyDescriptor pd : pds) {
+                System.out.println("property " + pd.getName());
+                if (pd.getName().contains("ID")) {
+                    Method md = pd.getReadMethod();// 获取get方法
+                    ID = (String) md.invoke(obj);
+                    System.out.println(TAG+"id="+ID);
+                    break;
+                }
+            }
+        } catch (IntrospectionException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        }
+        Connection connection = getJDBConnection();
+        Statement statement = connection.createStatement();
+        // default use ID to search
+        String sql = "select "+field+" from "+table+" WHERE "+key+"=\""+ID+"\"";
+        System.out.println(TAG+"query sql:"+sql);
+        ResultSet resultSet = statement.executeQuery(sql);
+
+        RowSetFactory factory = RowSetProvider.newFactory();
+        CachedRowSet  rowSet= factory.createCachedRowSet();
+        rowSet.populate(resultSet);
+        closeJDBConnection(connection);
         return rowSet;
     }
 
-    private CachedRowSet getObject(Object obj, String field) {
+    public static void setJDBCConfig(Map<String, String> JDBCConfig) {
+        Conversation.JDBCConfig = JDBCConfig;
+    }
+
+    public static void setClassBeanList(List<ClassBean> classBeanList) {
+        Conversation.classBeanList = classBeanList;
+    }
+
+    public static void setKey(String key) {
+        Conversation.key = key;
+    }
+
+    public Object getObject(Object obj, String field) {
         Class<?> clas = obj.getClass();
         System.out.println(TAG+clas.getName());
 
         ClassBean clasBean = null;
+        // find if query bean is in the or_mapping bean list
         for ( ClassBean classBean : classBeanList ) {
             System.out.println(classBean.getBeanName());
             String str = clas.getName();
@@ -52,6 +95,7 @@ public class Conversation {
             if ( classBean.getBeanName().equals( clasName ) ) {
                 System.out.println(TAG+"found");
                 clasBean = classBean;
+                propertyBeanList = classBean.getPropertyList();
                 break;
             }
         }
@@ -61,31 +105,41 @@ public class Conversation {
             return null;
         }
 
-        //从映射关系中得到使用的表
+        // resolve lazy property
+        List<PropertyBean> lazyPropertyList = new ArrayList<>();
+        StringBuilder builder = new StringBuilder("");
+        for (PropertyBean propertyBean : propertyBeanList) {
+            if(!propertyBean.getLazy()) {
+                builder.append(propertyBean.getColumnName());
+                builder.append(",");
+            } else {
+                lazyPropertyList.add(propertyBean);
+            }
+        }
+        builder.append(key);
+        String queriedColumn = builder.toString().substring(0,builder.length());
+
         String table = clasBean.getTableName();
-        //传入的对象所有的成员变量名都在propertyList中
         List<PropertyBean> propertyList = clasBean.getPropertyList();
-        //存储对应的成员变量及其值
+        // store variant name and value in query bean
         Map<String,String> map = new HashMap<String, String>();
         map.put("table", table);
         String columnName = null;
         for (PropertyBean property : propertyList) {
-            //得到fieldName对应的get方法
+            // get getter of the variant
             String fieldName =  property.getFiledName();
             System.out.println(TAG+fieldName);
             String rear = Character.toUpperCase(fieldName.charAt(0))+fieldName.substring(1);
             String methodName = "get"+rear;
             System.out.println(TAG+methodName);
-            //得到成员变量类型
+            // get variant type
             String type = property.getType();
             String result = null;
-            //根据方法名及参数找到对应的get方法
             try {
                 Method method = clas.getMethod(methodName);
                 if ( type.equals("TEXT")) {
-                    //类型转换,得到fieldName成员变量的值
+                    // get value
                     result = (String) method.invoke(obj);
-                    //如果变量没有被初始化
                     if ( result == null ) {
                         continue;
                     } else {
@@ -99,24 +153,34 @@ public class Conversation {
                 e.printStackTrace();
             }
         }
-        CachedRowSet rowSet = null;
+        ResultSet resultSet = null;
+        Connection connection = null;
+        String queryColumn = translateFieldToColumn(field, propertyBeanList);
         try {
-            Connection connection = getJDBConnection();
+            connection = getJDBConnection();
             Statement statement = connection.createStatement();
-            String sql = "select * from "+map.get("table")+" where "+field+"=\""+map.get("NAME")+"\"";
-            ResultSet resultSet = statement.executeQuery(sql);
-            RowSetFactory factory = RowSetProvider.newFactory();
-            rowSet = factory.createCachedRowSet();
-            rowSet.populate(resultSet);
+            String sql = "select "+queriedColumn+" from "+map.get("table")+" where "+queryColumn+"=\""+map.get(queryColumn)+"\"";
+            System.out.println(TAG+"construct sql "+sql);
+            resultSet = statement.executeQuery(sql);
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return rowSet;
+
+//        Object beanProxy = BeanProxyFactory.getBeanProxy(obj);
+        BeanProxy beanProxy = new BeanProxy(lazyPropertyList, map.get("table"));
+        Object proxy = beanProxy.getProxy(obj.getClass());
+        try {
+            CommonUtil.resultSetToBean(resultSet, proxy, propertyBeanList, key);
+            closeJDBConnection(connection);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return proxy;
     }
 
-    public Connection getJDBConnection() throws ClassNotFoundException, SQLException {
+    public static Connection getJDBConnection() throws ClassNotFoundException, SQLException {
         String driver = JDBCConfig.get("driver_class");
         String url = JDBCConfig.get("url_path");
         String userName = JDBCConfig.get("db_username");
@@ -134,9 +198,20 @@ public class Conversation {
         return connection;
     }
 
-    public void closeJDBConnection(Connection connection) throws SQLException {
+    public static void closeJDBConnection(Connection connection) throws SQLException {
         if (connection != null) {
             connection.close();
         }
+    }
+
+    private String translateFieldToColumn(String field, List<PropertyBean> propertyBeanList) {
+        String columnName = null;
+        for(PropertyBean propertyBean:propertyBeanList) {
+            if(propertyBean.getFiledName().equals(field)) {
+                columnName = propertyBean.getColumnName();
+            }
+        }
+
+        return columnName;
     }
 }

@@ -22,6 +22,7 @@ import static sc.ustc.util.CommonUtil.getXMLDoc;
 public class Configuration {
     private Map<String, String> JDBCConfig;
     private List<ClassBean> classBeanList;
+    private String key;
 
     public void resolveORMapping() {
         Document mappingDoc = null;
@@ -72,9 +73,20 @@ public class Configuration {
                 propertyBean.setFiledName(curProperty.element("name").getTextTrim());
                 propertyBean.setColumnName(curProperty.element("column").getTextTrim());
                 propertyBean.setType(curProperty.element("type").getTextTrim());
-                propertyBean.setLazy(curProperty.element("lazy").getTextTrim());
+
+                String lazy = curProperty.element("lazy").getTextTrim();
+                if(lazy.equals("false")) {
+                    propertyBean.setLazy(false);
+                } else if(lazy.equals("true")) {
+                    propertyBean.setLazy(true);
+                }
                 propertyList.add(propertyBean);
             }
+
+            List<Node> keyNode = curClass.selectNodes("id");
+            Element keyEle = (Element) keyNode.get(0);
+            key = keyEle.element("name").getTextTrim();
+
             classBean.setPropertyList(propertyList);
             classBeanList.add(classBean);
         }
@@ -87,5 +99,9 @@ public class Configuration {
 
     public Map<String, String> getJDBCConfig() {
         return JDBCConfig;
+    }
+
+    public String getKey() {
+        return key;
     }
 }

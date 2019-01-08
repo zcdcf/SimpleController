@@ -1,5 +1,7 @@
 package sc.ustc.controller;
 
+import sc.ustc.dao.Configuration;
+import sc.ustc.dao.Conversation;
 import sc.ustc.factory.ExecutorProxyFactory;
 import sc.ustc.model.*;
 import sc.ustc.util.*;
@@ -12,6 +14,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.sql.Connection;
 import java.util.*;
 
 /**
@@ -46,6 +49,15 @@ public class SimpleController extends HttpServlet {
         for(String key: dependencyBeanMap.keySet()) {
             System.out.println(TAG+" dependencyBean "+key+" in the map");
         }
+
+        Configuration configuration = new Configuration();
+        configuration.resolveORMapping();
+        System.out.println(TAG+"resolved ");
+        Conversation.setJDBCConfig(configuration.getJDBCConfig());
+        System.out.println(TAG+"get JDBCConfig");
+        Conversation.setClassBeanList(configuration.getClassBeanList());
+        System.out.println(TAG+"get classBeanList");
+        Conversation.setKey(configuration.getKey());
     }
 
     @Override
